@@ -12,7 +12,7 @@ PROCESS active_proc;
  */
 PCB *ready_queue [MAX_READY_QUEUES];
 
-
+unsigned ready_procs;
 
 
 /*
@@ -24,6 +24,22 @@ PCB *ready_queue [MAX_READY_QUEUES];
 
 void add_ready_queue (PROCESS proc)
 {
+	int prio;
+
+	assert(proc->magic == MAGIC_PCB);
+	prio = proc->priority;
+	if(ready_queue[prio] == NULL){
+		ready_queue[prio] = proc;
+		proc->next = proc;
+		proc->prev = proc;
+		ready_procs |= 1 << prio;
+	} else {
+		proc->next = ready_queue[prio];
+		proc->prev = ready_queue[prio]->prev;
+		ready_queue[prio]->prev->next = proc;
+		ready_queue[prio]->prev = proc;
+	}
+	proc->state = STATE_READY;
 }
 
 
@@ -37,6 +53,18 @@ void add_ready_queue (PROCESS proc)
 
 void remove_ready_queue (PROCESS proc)
 {
+	int prio;
+
+	assert(proc->magic == MAGIC_PCB);
+	prio = proc->priority;
+	if(proc->next == proc){
+		ready_queue[prio] = NULL;
+		ready_procs &= ~(1 << prio);
+	} else {
+		ready_queue[prio] = proc->next;
+		proc->prev->next = proc->next;
+		proc->next->prev = proc->prev;
+	}
 }
 
 
@@ -51,6 +79,17 @@ void remove_ready_queue (PROCESS proc)
 
 PROCESS dispatcher()
 {
+	PROCESS new_proc;
+	unsigned i;
+
+	i = table[ready_procs];
+	assert(i!=-1);
+	if(i == active_proc->priority)
+		new_proc = active_proc->next;
+	else
+		new_proc = ready_queue[i];
+
+	return new_proc;
 }
 
 
@@ -77,4 +116,11 @@ void resign()
 
 void init_dispatcher()
 {
+	int i;
+	for(i=0;i<MAX_READY_QUEUES;i++){
+		ready_queue[i] = NULL;
+	}
+	ready_procs = 0;
+
+	add_ready_queue(active_proc);
 }
