@@ -104,6 +104,13 @@ PROCESS dispatcher()
  */
 void resign()
 {
+	asm ("pushl %eax;pushl %ecx;pushl %edx");
+	asm ("pushl %ebx;pushl %ebp;pushl %esi;pushl %edi");
+	asm ("movl %%esp, %0" : "=r" (active_proc->esp) :);
+	active_proc = dispatcher();
+	asm ("movl %0, %%esp" :: "r" (active_proc->esp));
+	asm ("popl %edi;popl %esi;popl %ebp;popl %ebx");
+	asm ("popl %edx; popl %ecx;popl %eax");
 }
 
 
