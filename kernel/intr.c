@@ -194,10 +194,28 @@ void isr_timer_impl ()
 void isr_com1 ();
 void wrapper_isr_com1 ()
 {
+    asm ("isr_com1:");
+    asm ("pushl %eax;pushl %ecx;pushl %edx");
+    asm ("pushl %ebx;pushl %ebp;pushl %esi;pushl %edi");
+    asm ("movl %%esp,%0" : "=m" (active_proc->esp) :);
+    asm ("call isr_com1_impl");
+    asm ("movl %0,%%esp" :: "m" (active_proc->esp));
+    asm ("movb $0x20,%al; outb %al,$0x20");
+    asm ("popl %edi;popl %esi;popl %ebp;popl %ebx");
+    asm ("popl %edx;popl %ecx;popl %eax");
+    asm ("iret");
 }
+
 
 void isr_com1_impl()
 {
+    PROCESS p;
+    if((p = interrupt_table[COM1_IRQ]) == NULL)
+        panic("service_intr_0x64: Spurious interrupt");
+    if(p->state != STATE_INTR_BLOCKED)
+        panic("service_intr_0x64: No process waiting");
+    add_ready_queue(p);
+    active_proc = dispatcher();
 }
 
 
@@ -337,6 +355,8 @@ void init_interrupts()
     init_idt_entry (15, exception15);
     init_idt_entry (16, exception16);
     init_idt_entry (TIMER_IRQ, isr_timer);
+    init_idt_entry (COM1_IRQ, isr_com1);
+    init_idt_entry (KEYB_IRQ, isr_keyb);
 
     re_program_interrupt_controller();
 
