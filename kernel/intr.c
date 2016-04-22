@@ -165,10 +165,25 @@ void dummy_spurious_int ()
 void isr_timer ();
 void isr_timer_wrapper()
 {
+    asm ("isr_timer:");
+    asm ("pushl %eax;pushl %ecx;pushl %edx");
+    asm ("pushl %ebx;pushl %ebp;pushl %esi;pushl %edi");
+    asm ("movl %%esp,%0" : "=m" (active_proc->esp) :);
+    asm ("call isr_timer_impl");
+    asm ("movl %0,%%esp" :: "m" (active_proc->esp));
+    asm ("movb $0x20,%al; outb %al,$0x20");
+    asm ("popl %edi;popl %esi;popl %ebp;popl %ebx");
+    asm ("popl %edx;popl %ecx;popl %eax");
+    asm ("iret");
 }
 
 void isr_timer_impl ()
 {
+    PROCESS p = interrupt_table[TIMER_IRQ];
+    if(p && p->state == STATE_INTR_BLOCKED){
+        add_ready_queue(p);
+    }
+    active_proc = dispatcher();
 }
 
 
@@ -310,6 +325,7 @@ void init_interrupts()
     init_idt_entry (14, exception14);
     init_idt_entry (15, exception15);
     init_idt_entry (16, exception16);
+    init_idt_entry (TIMER_IRQ, isr_timer);
 
     re_program_interrupt_controller();
 

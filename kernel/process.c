@@ -13,6 +13,8 @@ PORT create_process (void (*ptr_to_new_proc) (PROCESS, PARAM),
 	MEM_ADDR esp;
 	PROCESS new_proc;
 	PORT new_port;
+	volatile int flag;
+	DISABLE_INTR(flag);
 
 	if(prio >= MAX_READY_QUEUES)
 		panic("create(): Bad Priority");
@@ -21,6 +23,7 @@ PORT create_process (void (*ptr_to_new_proc) (PROCESS, PARAM),
 
 	new_proc = next_free_pcb;
 	next_free_pcb = new_proc->next;
+	ENABLE_INTR(flag);
 
 	new_proc->used = TRUE;
 	new_proc->magic = MAGIC_PCB;
@@ -38,6 +41,12 @@ PORT create_process (void (*ptr_to_new_proc) (PROCESS, PARAM),
 	PUSH(param);
 	PUSH(new_proc);
 	PUSH(0);
+	if(interrupts_initialized){
+		PUSH(512);
+	} else{
+		PUSH(0);
+	}
+	PUSH(CODE_SELECTOR);
 	PUSH(ptr_to_new_proc);
 	PUSH(0);
 	PUSH(0);
