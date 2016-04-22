@@ -84,7 +84,8 @@ void print_process_details(WINDOW* wnd, PROCESS p)
 		"SEND_BLOCKED   ",
 		"MESSAGE_BLOCKED",
 		"RECEIVE_BLOCKED",
-		"REPLY_BLOCKED  "
+		"REPLY_BLOCKED  ",
+		"INTR_BLOCKED   "
 	};
 	if(!p->used){
 		wprintf(wnd,"PCB slot unused");
