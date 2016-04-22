@@ -1,39 +1,123 @@
 
 #include <kernel.h>
 
+#define SCREEN_BASE_ADDR 0xb8000
+#define SCREEN_WIDTH 80
+#define SCREEN_HEIGHT 25
 
+WORD default_color = 0x0f;
 
+void poke_screen(int x, int y, WORD ch)
+{
+	poke_w(SCREEN_BASE_ADDR + y * SCREEN_WIDTH * 2 + x * 2, ch);
+}
+
+WORD peek_screen(int x, int y)
+{
+	return peek_w(SCREEN_BASE_ADDR + y * SCREEN_WIDTH * 2 + x * 2);
+}
+
+void scroll_window(WINDOW* wnd)
+{
+	int x, y;
+	int wx, wy;
+
+	for(y=0;y<wnd->height-1;y++){
+		wy = wnd->y + y;
+		for(x=0;x<wnd->width;x++){
+			wx = wnd->x + x;
+			WORD w = peek_screen(wx,wy+1);
+			poke_screen(wx,wy,w);
+		}
+	}
+	wy = wnd->y + wnd->height - 1;
+	for(x=0;x<wnd->width;x++){
+		wx = wnd->x + x;
+		poke_screen(wx,wy,0);
+	}
+	wnd->cursor_x = 0;
+	wnd->cursor_y = wnd->height - 1;
+}
 
 void move_cursor(WINDOW* wnd, int x, int y)
 {
+	assert(x < wnd->width && y < wnd->height);
+	wnd->cursor_x = x;
+	wnd->cursor_y = y;
 }
 
 
 void remove_cursor(WINDOW* wnd)
 {
+	poke_screen(wnd->x + wnd->cursor_x, wnd->y + wnd->cursor_y,' ');
 }
 
 
 void show_cursor(WINDOW* wnd)
 {
+	poke_screen(wnd->x + wnd->cursor_x, wnd->y + wnd->cursor_y, wnd->cursor_char | (default_color << 8));
 }
 
 
 void clear_window(WINDOW* wnd)
 {
+	int x, y;
+	int wx, wy;
+
+	wnd->cursor_x = 0;
+	wnd->cursor_y = 0;
+
+	for(y=0;y<wnd->height;y++){
+		wy = wnd->y + y;
+		for(x=0;x<wnd->width;x++){
+			wx = wnd->x + x;
+			poke_screen(wx,wy,0);
+		}
+	}
+	show_cursor(wnd);
 }
 
 
 void output_char(WINDOW* wnd, unsigned char c)
 {
+	remove_cursor(wnd);
+	switch(c){
+		case '\n':
+		case 13:
+					wnd->cursor_x = 0;
+					wnd->cursor_y++;
+					break;
+		case '\b':
+					if(wnd->cursor_x!=0){
+						wnd->cursor_x--;
+					} else { 
+						if(wnd->cursor_y!=0){
+							wnd->cursor_x = wnd->width - 1;
+							wnd->cursor_y--;
+					  }
+					}
+					break;
+		default:
+					poke_screen(wnd->x + wnd->cursor_x,wnd->y + wnd->cursor_y,(short unsigned int) c | (default_color << 8));
+					wnd->cursor_x++;
+					if(wnd->cursor_x == wnd->width){
+						wnd->cursor_x = 0;
+						wnd->cursor_y++;
+					}
+					break;
+		}
+	if(wnd->cursor_y == wnd->height)
+		scroll_window(wnd);
+	show_cursor(wnd);
 }
-
 
 
 void output_string(WINDOW* wnd, const char *str)
 {
+	while(*str != '\0'){
+		output_char(wnd,*str++);
+	}
 }
-
 
 
 /*
